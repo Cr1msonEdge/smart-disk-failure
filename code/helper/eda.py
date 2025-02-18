@@ -10,7 +10,7 @@ class EDA():
     def __init__(self, data: HDDDataset):
         self.data = data
         self.df = data.df
-        self.selected_disk_df = None   # Выбранный подмассив, соответствующий выбранному диску
+        self.selected_disk_df = None   # Chosen disk
         self.selected_disk_num = None
         self.SMART_LIST = [i for i in self.df.columns if i.startswith('smart_')]
 
@@ -27,22 +27,22 @@ class EDA():
         self.selected_disk_num = None
     
     def show_info(self):
-        print("=== Общая информация ===")
+        print("=== Overall information ===")
         print(self.df.info())
-        print("\n=== Первые строки информации ===")
+        print("\n=== First rows of information ===")
         print(self.df.head())
-        print("\n=== Описательная статистика ===")
+        print("\n=== Descriptional stats ===")
         print(self.df.describe())
-        print("\n=== Отсутствующие значения ===")
+        print("\n=== Missing values ===")
         print(self.df.isnull().sum())
 
     def show_assymetry(self):
         if self.selected_disk_df is not None:
-            print(f"=== Ассиметрия для SMART признаков выбранного диска: {self.selected_disk_num} ===")
+            print(f"=== Skewness for SMART features of chosen disk: {self.selected_disk_num} ===")
             for feature in self.SMART_LIST:
                 print(f"{feature}: {skew(self.selected_disk_df[feature])} - {kurtosis(self.selected_disk_df[feature])}")
         else:
-            print("=== Ассиметрия для SMART признаков всего датасета ===")
+            print("=== Skewness for SMART features for the whole dataset ===")
             for feature in self.SMART_LIST:
                 print(f"{feature}: {skew(self.df[feature])} - {kurtosis(self.df[feature])}")
 
@@ -56,7 +56,7 @@ class EDA():
             else:
                 numeric_columns = self.selected_disk_df.select_dtypes(include=['float64', 'int64']).columns   
             
-            print(f"=== Гистограммы признаков для выбранного диска: {self.selected_disk_num} ===")
+            print(f"=== Hystplots for the chosen disk: {self.selected_disk_num} ===")
             self.selected_disk_df[numeric_columns].hist(figsize=(15, 10), bins=20, color='skyblue', edgecolor='black')
             
             plt.tight_layout()
@@ -69,32 +69,30 @@ class EDA():
             
             fig, axes = plt.subplots(n_rows, n_cols, figsize=(20, n_rows * 4))
             axes = axes.flatten()  
-            # Построение гистограмм по каждому признаку
             for idx, feature in enumerate(features):
                 sns.histplot(self.df[feature], bins=20, color='skyblue', edgecolor='black', kde=True, ax=axes[idx])
-                axes[idx].set_title(f'Гистограмма {feature}')
+                axes[idx].set_title(f'Hystplot of {feature}')
                 axes[idx].set_xlabel(feature)
-                axes[idx].set_ylabel('Частота')
+                axes[idx].set_ylabel('Count')
             
             for i in range(len(features), len(axes)):
                 axes[i].set_visible(False)
             
-            print("=== Гистограммы признаков для всего датасета ===")
-
+            print("=== Hystplot of features for the whole dataset ===")
             plt.tight_layout()
             plt.show()
 
         
     def plot_boxplots(self, features=None):
         if self.selected_disk_df is None:
-            print("Вы не выбрали диск. Используйте метод select_disk() для выбора диска.")
+            print("You have to select disk before calling. Use select_disk()")
             return
         for i in features: assert i in self.selected_disk_df.columns
         
-        print(f"=== Выбран диск: {self.selected_disk_num} ===")
+        print(f"=== Disk chosen: {self.selected_disk_num} ===")
         for i in features: assert i in self.selected_disk_df.columns
 
-        print("=== Boxplots для числовых признаков для выбранного диска ===")
+        print("=== Boxplots for numeral features for the chosen disk ===")
         numeric_columns = self.selected_disk_df.select_dtypes(include=['float64', 'int64']).columns if features is None else features
         numeric_columns = [i for i in numeric_columns if i != 'capacity_bytes' and i != 'failure'] if features is None else features
         
@@ -109,11 +107,11 @@ class EDA():
             for i in features: assert i in self.selected_disk_df.columns
 
         if self.selected_disk_df is not None:
-            print(f"=== Корреляционная матрица для выбранного диска: {self.selected_disk_num} ===")
+            print(f"=== Correlation matrix for the chosen disk: {self.selected_disk_num} ===")
             numeric_columns = self.selected_disk_df.select_dtypes(include=['float64', 'int64']).columns if features is None else features
             corr_matrix = self.selected_disk_df[numeric_columns].corr()
         else:
-            print("=== Корреляционная матрица для всего датасета ===")
+            print("=== Correlation matrix for the whole dataset ===")
             numeric_columns = self.df.select_dtypes(include=['float64', 'int64']).columns if features is None else features
             corr_matrix = self.df[numeric_columns].corr()
         
@@ -124,12 +122,12 @@ class EDA():
 
     def plot_time_series(self, features, multiplot=False):
         if self.selected_disk_df is None:
-            print("Вы не выбрали диск")
+            print("You have to select disk before calling. Use select_disk()")
             return
         for i in features: assert i in self.selected_disk_df.columns
         
-        print(f"=== Выбран диск: {self.selected_disk_num} ===")
-        print("=== Временные ряды для выбранного диска ===")
+        print(f"=== Chosen disk: {self.selected_disk_num} ===")
+        print("=== Time series for the chosen disk ===")
         if not multiplot:
             for feature in features:
                 plt.figure(figsize=(10, 6))
@@ -137,7 +135,7 @@ class EDA():
                 plt.xlabel('Date')
                 plt.ylabel(feature)
                 plt.xticks(rotation=45)
-                plt.title(f'Временной ряд для {feature}')
+                plt.title(f'Time series for {feature}')
                 plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=2))  
                 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d')) 
                 plt.gcf().autofmt_xdate()
@@ -149,7 +147,7 @@ class EDA():
             plt.xlabel('Date')
             plt.ylabel('Value')
             plt.xticks(rotation=45)
-            plt.title('Временные ряды для выбранного диска')
+            plt.title('Time series for the chosen disk')
             plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=2))  
             plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d')) 
             plt.gcf().autofmt_xdate()

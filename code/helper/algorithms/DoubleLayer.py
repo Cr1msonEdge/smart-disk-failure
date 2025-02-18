@@ -16,7 +16,7 @@ class DoubleLayer:
         self.layer2 = None
         self.important_features = None
         self.layer1_preds = None
-        self.default = default  # Использование tuned параметров по умолчанию
+        self.default = default  # Using tuned parameters by default
         self.layer_params = {
             'n_estimators': 489, 
             'max_depth':15, 
@@ -80,13 +80,14 @@ class DoubleLayer:
             X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y) 
             best_params, best_value = self.optimize_hyperparams_tpe(X_train, y_train, X_val, y_val)
         
-            print(f"Лучшие гиперпараметры: {best_params}")
-            print(f"Лучший результат валидации: {best_value}")
+            print(f"Best parameters: {best_params}")
+            print(f"Best validation results: {best_value}")
             self.layer_params = best_params
         
-        # иначе self.layer_params с базовыми настройками
-        self.layer1 = XGBClassifier(**self.layer_params, n_jobs=-1, scale_pos_weight=self.compute_scale_pos_weight(y))
-        print("=== Обучаем модель первого слоя ===")
+        else:
+        # else use self.layer_params with default params
+            self.layer1 = XGBClassifier(**self.layer_params, n_jobs=-1, scale_pos_weight=self.compute_scale_pos_weight(y))
+        print("=== Training first layer model ===")
         self.layer1.fit(X, y)
         return self.layer1
     
@@ -95,16 +96,16 @@ class DoubleLayer:
         feature_names = X.columns
         feature_importance_normalized = feature_importance / feature_importance.sum()
 
-        # Сохранение признаков по важности
+        # Saving features by importance
         self.feature2importance = sorted(list(zip(feature_names, feature_importance_normalized)), key=lambda x: x[1], reverse=True)
 
-        # Отбор важных признаков по порогу
+        # Selecting important features by threshold
         important_features_mask = feature_importance_normalized >= self.imp_thresh
         selected_feature_names = [name for name, is_important in zip(feature_names, important_features_mask) if is_important]
         self.important_features = selected_feature_names
-        print(f"=== Выбранные признаки: {selected_feature_names} ===")
+        print(f"=== Chosen features: {selected_feature_names} ===")
 
-        # Возвращаем выбранные важные признаки
+        # Return selected features
         X_selected = X[selected_feature_names]
         X_selected.reset_index(drop=True, inplace=True)
         return X_selected, selected_feature_names
@@ -112,7 +113,7 @@ class DoubleLayer:
     def fit(self, X, y):
         self.set_model_1(X, y)
         X_selected, self.important_features = self.get_important_features(self.layer1, X)
-        print("=== Получаем предсказания первой модели ===")
+        print("=== Getting first model's predictions ===")
         skf = StratifiedKFold(n_splits=self.n_splits, shuffle=True, random_state=42)
         layer1_preds = np.zeros(len(X))
         for train_idx, val_idx in skf.split(X, y):
@@ -125,7 +126,7 @@ class DoubleLayer:
             
         X_selected['layer1_preds'] = layer1_preds
 
-        print("=== Обучаем вторую модель ===")
+        print("=== Training second layer model ===")
         self.layer2 = XGBClassifier(**self.layer_params, n_jobs=-1, scale_pos_weight=self.compute_scale_pos_weight(y))
         self.layer2.fit(X_selected, y)
         

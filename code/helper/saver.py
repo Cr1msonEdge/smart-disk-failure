@@ -1,8 +1,15 @@
 import json, os, datetime
 
 class Saver:
+    """
+    Saving models, datasets, preprocessing methods
+    """
     @classmethod
     def save(cls, model, preprocessor, metrics, colab=False, save_csv=True):
+        """
+        :colab: - True if working on Google Colab
+        :save_csv: - preprocessed dataset
+        """
         timestamp = str(datetime.datetime.now()).replace(' ', '-').replace(':', '-')[:-7]
         if colab:
             saved_dir = '.\\real-hdd-failure\\code\\helper\\saved'

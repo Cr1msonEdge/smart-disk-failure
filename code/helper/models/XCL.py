@@ -11,6 +11,9 @@ from sklearn.utils.class_weight import compute_class_weight
 
 
 class WeightedXCL:
+    """
+    Impelemtation of weighted ensemble of 3 gradient boosting models
+    """
     def __init__(self, weights=None, thresh=0.5):
         # self.model_xgb = XGBClassifier(tree_method='gpu_hist')
         # self.model_cat = CatBoostClassifier(verbose=0, task_type='GPU')
@@ -23,7 +26,7 @@ class WeightedXCL:
         if weights is None:
             self.weights = [1/3, 1/3, 1/3]
         else:
-            assert len(weights) == 3, "Количество весов должно быть равно 3"
+            assert len(weights) == 3, "Number of weights coeffs shoudld be equal 3"
             self.weights = weights
         
         self.optimizations = []
@@ -32,19 +35,19 @@ class WeightedXCL:
         class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
         class_weight_dict = dict(zip(np.unique(y_train), class_weights))
         
-        print("Обучаем XGBoost...")
+        print("Training XGBoost...")
         self.model_xgb = XGBClassifier()
         self.model_xgb.fit(X_train, y_train, scale_pos_weight=class_weights[1] / class_weights[0], n_jobs=-1)
 
-        print("Обучаем CatBoost...")
+        print("Training CatBoost...")
         self.model_cat = CatBoostClassifier(class_weights=class_weight_dict, thread_count=-1)
         self.model_cat.fit(X_train, y_train)
 
-        print("Обучаем LightGBM...")
+        print("Training LightGBM...")
         self.model_lgbm = LGBMClassifier(class_weight=class_weight_dict, n_jobs=-1)
         self.model_lgbm.fit(X_train, y_train)
         
-        print("Обучение завершено")
+        print("Training finished")
 
     def __str__(self):
         return 'WeightedXCL'
@@ -71,7 +74,7 @@ class WeightedXCL:
         proba_cat = self.model_cat.predict_proba(X)
         proba_lgbm = self.model_lgbm.predict_proba(X)
 
-        # Взвешенное суммирование предсказаний
+        # Weighted sum
         weighted_proba = self.weights[0] * proba_xgb + self.weights[1] * proba_cat + self.weights[2] * proba_lgbm
         
         return weighted_proba
@@ -81,7 +84,7 @@ class WeightedXCL:
         return weighted_proba[:, 1] >= self.preds_thresh
     
     def set_weights(self, weights):
-        assert len(weights) == 3, "Количество весов должно быть равно 3"
+        assert len(weights) == 3, "Number of weights coeffs shoudld be equal 3"
         self.weights = weights
     
     def optimize_weights(self, X_val, y_val):
@@ -101,7 +104,7 @@ class WeightedXCL:
         for weights in weights_grid:
             self.set_weights(weights)
             preds = self.predict(X_val)
-            score = f1_score(y_val, preds)  # Можно использовать другую метрику
+            score = f1_score(y_val, preds)  # One may use another metric
 
             if score > best_score:
                 best_score = score
@@ -112,10 +115,9 @@ class WeightedXCL:
         return best_weights, best_score
     
     def optimize_models_hyperparameters(self, X_train, y_train, method='random', epochs=5, cv=4):
-        assert method in ['random', 'grid'], "Метод оптимизации должен быть 'random' или 'grid'"
+        assert method in ['random', 'grid'], "Optimization method should be 'random' or 'grid'"
         
         if method == 'grid':
-            # Grid оптимизация
             param_grid_xgb = {
                 'n_estimators': [100, 200],
                 'learning_rate': [0.01, 0.1],
@@ -137,7 +139,6 @@ class WeightedXCL:
             search_cat = GridSearchCV(self.model_cat, param_grid_cat, cv=cv, scoring='f1')
             search_lgbm = GridSearchCV(self.model_lgbm, param_grid_lgbm, cv=cv, scoring='f1')
         else:
-            # Используем RandomizedSearchCV
             random_grid_xgb = {
                 'n_estimators': randint(50, 500),  
                 'learning_rate': uniform(0.01, 0.3),
@@ -175,22 +176,20 @@ class WeightedXCL:
             search_cat = RandomizedSearchCV(self.model_cat, param_distributions=random_grid_cat, n_iter=epochs, cv=cv, scoring='f1', random_state=42, n_jobs=-1)
             search_lgbm = RandomizedSearchCV(self.model_lgbm, param_distributions=random_grid_lgbm, n_iter=epochs, cv=cv, scoring='f1', random_state=42, n_jobs=-1)
         
-        print("=== Оптимизация гиперпараметров для XGBoost... ===")
+        print("=== Optimization XGBoost parameters... ===")
         search_xgb.fit(X_train, y_train)
         self.model_xgb = search_xgb.best_estimator_
-        print("Лучшие параметры для XGBoost:", search_xgb.best_params_)
+        print("Best params for XGBoost:", search_xgb.best_params_)
 
-        # Оптимизация CatBoost
-        print("=== Оптимизация гиперпараметров для CatBoost... ===")
+        print("=== Optimization CatBoost parameters... ===")
         search_cat.fit(X_train, y_train)
         self.model_cat = search_cat.best_estimator_
-        print("Лучшие параметры для CatBoost:", search_cat.best_params_)
+        print("Best params for CatBoost:", search_cat.best_params_)
 
-        # Оптимизация LightGBM
-        print("=== Оптимизация гиперпараметров для LightGBM... ===")
+        print("=== Optimizing params for LightGBM... ===")
         search_lgbm.fit(X_train, y_train)
         self.model_lgbm = search_lgbm.best_estimator_
-        print("Лучшие параметры для LightGBM:", search_lgbm.best_params_)
+        print("Best params for LightGBM:", search_lgbm.best_params_)
 
         self.optimizations.append({'optimization': 'simple', 'data': 'train', 'params': {'method': method, 'epochs': epochs, 'cv': cv}})
     
@@ -235,7 +234,7 @@ class WeightedXCL:
             model_cat = CatBoostClassifier(**param_cat, verbose=0, thread_count=-1)
             model_lgbm = LGBMClassifier(**param_lgbm, verbose=-1, n_jobs=-1)
             
-            # Обучаем модели
+            # Training models
             model_xgb.fit(X_train, y_train)
             model_cat.fit(X_train, y_train)
             model_lgbm.fit(X_train, y_train)
@@ -244,7 +243,7 @@ class WeightedXCL:
             y_pred_cat = model_cat.predict(X_val)
             y_pred_lgbm = model_lgbm.predict(X_val)
 
-            # Рассчитываем F1-score для каждой модели
+            # Getting f1 score for models
             f1_xgb = f1_score(y_val, y_pred_xgb)
             f1_cat = f1_score(y_val, y_pred_cat)
             f1_lgbm = f1_score(y_val, y_pred_lgbm)
@@ -296,8 +295,8 @@ class WeightedXCL:
         self.model_cat.fit(X_train, y_train)
         self.model_lgbm.fit(X_train, y_train)
         
-        print(f"Лучшие гиперпараметры: {study.best_params}")
-        print(f"Лучшая оценка: {study.best_value}")
+        print(f"Best params: {study.best_params}")
+        print(f"Best score: {study.best_value}")
 
         self.optimizations.append({'optimization': 'tpe', 'data': 'train', 'params': {'n_trials': n_trials}})
 

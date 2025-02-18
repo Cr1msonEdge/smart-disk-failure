@@ -14,10 +14,9 @@ class PreprocUtils:
     @classmethod
     def add_time_features(cls, df):
         """
-        Добавляет дополнительные признаки: сдвиги и разности, только для raw данных
+        Adds additional features: shifts and differences, only for raw data
         """
         shift_periods = 1
-        # Создаем 
         shift_features = pd.DataFrame(index=df.index)
         diff_features = pd.DataFrame(index=df.index)
         SMART_FEATURES = ['smart_5_raw', 'smart_9_raw', 'smart_187_raw', 'smart_188_raw', 'smart_192_raw', 'smart_197_raw', 'smart_199_raw', 'smart_240_raw', 'smart_241_raw', 'smart_242_raw']
@@ -33,7 +32,7 @@ class PreprocUtils:
     @classmethod
     def drop_unimportant_features(cls, df, columns, drop, cout=False):
         """
-        Требует столбцы в упорядоченном по возрастанию важности списке
+        Requires columns in an ascending order of importance list
         """
         counter = 0
         if cout:
@@ -50,15 +49,14 @@ class PreprocUtils:
     @classmethod
     def normalize_data(cls, df, columns=None, auto=True, method='YJ', inplace=False, lmbd=0.35):
         """
-        Выполняет преобразования нормализации
+        Normalization methods
         """
 
         shift_periods = 1
-
         METHODS = ['log1p', 'boxcoxlog', 'minmax', 'zscore', 'YJ', 'BC', 'formulae']
         
         if auto:
-            assert method in METHODS, f"Выбрано неверное название метода преобразования, доступны {METHODS}"
+            assert method in METHODS, f"Method name should be in {METHODS}"
             SMART_LIST_RAW = [i for i in df.columns if (i.startswith('smart_') and i.endswith('_raw'))]            
             SMART_LIST_NORMALIZED = [i for i in df.columns if (i.startswith('smart_') and i.endswith('_normalized'))]
             if method == 'log1p':
@@ -133,7 +131,7 @@ class PreprocUtils:
                         
         else:
             assert columns is not None
-            assert set(columns) <= set(df.columns)  # Проверяем, что выбранные столбцы есть в датасете    
+            assert set(columns) <= set(df.columns)  # Checking if columns are in dataset   
             assert method in ['log', 'log1p', 'boxcox']
             
             if method == 'log':
@@ -175,7 +173,7 @@ class Preprocessing():
         
     def clear_unused_data(self):
         """
-        Удаляет лишние признаки
+        Clearing useless columns
         """
         print('Clearing unused columns...')
         self.df = self.df.drop(columns=['model', 'capacity_bytes', 'smart_198_raw'], errors='ignore')
@@ -186,7 +184,7 @@ class Preprocessing():
         self.df['date'] = pd.to_datetime(self.df['date'])
         self.df = self.df.sort_values(by=['serial_number', 'date'])
         self.df[target_column] = 0
-        # Группировка по серийным номерам
+        # Grouping by serial number
         self.df[target_column] = (
             self.df.groupby('serial_number')['failure']
             .transform(lambda x: x[::-1].rolling(window=30, min_periods=1).max()[::-1])
@@ -237,9 +235,9 @@ class Preprocessing():
     def train_test_val_split(self, train_size=0.8, val_size=0.1, test_size=0.1, sampling_strat=-1, oversampling=None, undersampling=None):
         assert self.train_df is not None
         assert train_size + val_size + test_size == 1
-        assert sampling_strat == -1 or (sampling_strat > 0 and sampling_strat < 1), 'Некорректное значение sampling_strat'
-        assert oversampling in ['Default', 'Enn', 'Borderline', None, 'Tomek', 'Adasyn'], 'Некорректное значение oversampling'
-        assert undersampling in ['Tomek', 'NearMiss', None, 'Random'], 'Некорректное значение undersampling' 
+        assert sampling_strat == -1 or (sampling_strat > 0 and sampling_strat < 1), 'Invalid value for sampling_strat'
+        assert oversampling in ['Default', 'Enn', 'Borderline', None, 'Tomek', 'Adasyn'], 'Invalid value for oversampling'
+        assert undersampling in ['Tomek', 'NearMiss', None, 'Random'], 'Invalid value for undersampling' 
         
         print('Splitting train dataset...')
         X, y_true = self.get_train_df(True)
@@ -397,7 +395,7 @@ class Preprocessing():
         self.operations.append({'operation': 'drop_unimportant_features', 'columns': columns, 'drop': drop})
         
     def denormalize_data(self, columns, method: str, lmb=None):
-        assert set(columns) <= set(self.df.columns)  # Проверяем, что выбранные столбцы есть в датасете
+        assert set(columns) <= set(self.df.columns)  # Checking that columns are in dataset
         assert method in ['log', 'log1p', 'boxcox']
         assert lmb is None or method == 'boxcox'
         

@@ -10,6 +10,9 @@ import optuna
 
 
 class MyModel:
+    """
+    Implementation of model class for Gradient Boosting models
+    """
     def __init__(self, model_name):
         assert model_name in ['XGBoost', 'CatBoost', 'LightGBM']
         self.model_name = model_name
